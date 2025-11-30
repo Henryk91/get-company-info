@@ -4,17 +4,18 @@ import SearchForm from './components/SearchForm';
 import MapView from './components/MapView';
 import PlacesTable from './components/PlacesTable';
 import PreviousSearches from './components/PreviousSearches';
-import { authAPI, placesAPI } from './services/api';
+import { authAPI, placesAPI, SearchQuery, Place, SearchRequest, RefreshRequest } from './services/api';
+import { AxiosError } from 'axios';
 import './App.css';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [currentQuery, setCurrentQuery] = useState(null);
-  const [places, setPlaces] = useState([]);
-  const [error, setError] = useState('');
-  const [refreshSearches, setRefreshSearches] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [currentQuery, setCurrentQuery] = useState<SearchQuery | null>(null);
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [error, setError] = useState<string>('');
+  const [refreshSearches, setRefreshSearches] = useState<number>(0);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   useEffect(() => {
     checkAuth();
@@ -48,7 +49,7 @@ function App() {
     setPlaces([]);
   };
 
-  const handleSearch = async (searchData) => {
+  const handleSearch = async (searchData: SearchRequest) => {
     setError('');
     setLoading(true);
 
@@ -59,13 +60,14 @@ function App() {
       // Trigger refresh of previous searches list
       setRefreshSearches(prev => prev + 1);
     } catch (err) {
-      setError(err.response?.data?.detail || 'An error occurred while searching');
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setError(axiosError.response?.data?.detail || 'An error occurred while searching');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRefresh = async (refreshData) => {
+  const handleRefresh = async (refreshData: RefreshRequest) => {
     setError('');
     setLoading(true);
 
@@ -74,13 +76,14 @@ function App() {
       setCurrentQuery(response.data);
       setPlaces(response.data.places || []);
     } catch (err) {
-      setError(err.response?.data?.detail || 'An error occurred while refreshing');
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setError(axiosError.response?.data?.detail || 'An error occurred while refreshing');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectSearch = (queryData) => {
+  const handleSelectSearch = (queryData: SearchQuery) => {
     setCurrentQuery(queryData);
     setPlaces(queryData.places || []);
     setError('');
@@ -185,7 +188,7 @@ function App() {
   );
 }
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   header: {
     backgroundColor: '#007bff',
     color: 'white',

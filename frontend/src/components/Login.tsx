@@ -1,25 +1,40 @@
-import { useState } from 'react';
+import { useState, FormEvent, ChangeEvent } from 'react';
 import { authAPI } from '../services/api';
+import { AxiosError } from 'axios';
 
-const Login = ({ onLogin }) => {
-  const [isLogin, setIsLogin] = useState(true);
+interface LoginProps {
+  onLogin: () => void;
+}
+
+interface ValidationError {
+  loc: (string | number)[];
+  msg: string;
+  type: string;
+}
+
+interface ErrorResponse {
+  detail: string | ValidationError[];
+}
+
+const Login = ({ onLogin }: LoginProps) => {
+  const [isLogin, setIsLogin] = useState<boolean>(true);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
   });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const formatError = (error) => {
+  const formatError = (error: ErrorResponse | null | undefined): string => {
     if (!error) return 'An error occurred';
     
     // Handle validation errors (422) - detail is an array
     if (Array.isArray(error.detail)) {
-      return error.detail.map(err => {
+      return error.detail.map((err: ValidationError) => {
         // Extract field name from location (e.g., ['body', 'password'] -> 'password')
         const field = err.loc && err.loc.length > 1 
-          ? err.loc[err.loc.length - 1] 
+          ? String(err.loc[err.loc.length - 1])
           : 'field';
         // Capitalize first letter and replace underscores
         const fieldName = field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ' ');
@@ -36,7 +51,7 @@ const Login = ({ onLogin }) => {
     return 'An error occurred';
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -50,7 +65,11 @@ const Login = ({ onLogin }) => {
         localStorage.setItem('token', response.data.access_token);
         onLogin();
       } else {
-        await authAPI.register(formData);
+        await authAPI.register({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+        });
         // Auto login after registration
         const response = await authAPI.login({
           username: formData.username,
@@ -64,10 +83,11 @@ const Login = ({ onLogin }) => {
       let errorMessage = 'An error occurred';
       
       try {
-        if (err.response?.data) {
-          errorMessage = formatError(err.response.data);
-        } else if (err.message) {
-          errorMessage = err.message;
+        const axiosError = err as AxiosError<ErrorResponse>;
+        if (axiosError.response?.data) {
+          errorMessage = formatError(axiosError.response.data);
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
         }
       } catch (formatErr) {
         console.error('Error formatting error message:', formatErr);
@@ -80,6 +100,11 @@ const Login = ({ onLogin }) => {
     }
   };
 
+  const handleInputChange = (field: 'username' | 'email' | 'password') => 
+    (e: ChangeEvent<HTMLInputElement>) => {
+      setFormData({ ...formData, [field]: e.target.value });
+    };
+
   return (
     <div style={styles.container}>
       <div style={styles.card}>
@@ -89,7 +114,7 @@ const Login = ({ onLogin }) => {
             type="text"
             placeholder="Username"
             value={formData.username}
-            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+            onChange={handleInputChange('username')}
             required
             style={styles.input}
           />
@@ -98,7 +123,7 @@ const Login = ({ onLogin }) => {
               type="email"
               placeholder="Email"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={handleInputChange('email')}
               required
               style={styles.input}
             />
@@ -107,7 +132,7 @@ const Login = ({ onLogin }) => {
             type="password"
             placeholder="Password"
             value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            onChange={handleInputChange('password')}
             required
             style={styles.input}
           />
@@ -132,7 +157,7 @@ const Login = ({ onLogin }) => {
   );
 };
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   container: {
     display: 'flex',
     justifyContent: 'center',

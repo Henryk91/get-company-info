@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
-import { placesAPI } from '../services/api';
+import { placesAPI, SearchQuery } from '../services/api';
+import { AxiosError } from 'axios';
 
-const PreviousSearches = ({ onSelectSearch, currentQueryId, refreshTrigger }) => {
-  const [searches, setSearches] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+interface PreviousSearchesProps {
+  onSelectSearch: (queryData: SearchQuery) => void;
+  currentQueryId?: number;
+  refreshTrigger?: number;
+}
+
+const PreviousSearches = ({ onSelectSearch, currentQueryId, refreshTrigger }: PreviousSearchesProps) => {
+  const [searches, setSearches] = useState<SearchQuery[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     loadSearches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger]);
 
   const loadSearches = async () => {
@@ -19,17 +27,18 @@ const PreviousSearches = ({ onSelectSearch, currentQueryId, refreshTrigger }) =>
       const sorted = response.data.sort((a, b) => {
         const dateA = new Date(a.created_at);
         const dateB = new Date(b.created_at);
-        return dateB - dateA;
+        return dateB.getTime() - dateA.getTime();
       });
       setSearches(sorted);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to load previous searches');
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setError(axiosError.response?.data?.detail || 'Failed to load previous searches');
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
@@ -39,12 +48,13 @@ const PreviousSearches = ({ onSelectSearch, currentQueryId, refreshTrigger }) =>
     }
   };
 
-  const handleSelect = async (queryId) => {
+  const handleSelect = async (queryId: number) => {
     try {
       const response = await placesAPI.getQuery(queryId);
       onSelectSearch(response.data);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to load search');
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setError(axiosError.response?.data?.detail || 'Failed to load search');
     }
   };
 
@@ -97,7 +107,7 @@ const PreviousSearches = ({ onSelectSearch, currentQueryId, refreshTrigger }) =>
   );
 };
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   container: {
     padding: '1.5rem',
   },

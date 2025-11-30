@@ -1,15 +1,30 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, ChangeEvent, MouseEvent, FormEvent } from 'react';
+import { Place, RefreshRequest } from '../services/api';
 
-const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
-  const [refreshTextSearch, setRefreshTextSearch] = useState(false);
-  const [refreshDetails, setRefreshDetails] = useState(false);
-  const [maxDetails, setMaxDetails] = useState('');
-  const [selectedPlace, setSelectedPlace] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
+interface PlacesTableProps {
+  places: Place[];
+  onRefresh: (data: RefreshRequest) => void;
+  queryId?: number;
+  loading: boolean;
+}
+
+interface OpeningHoursData {
+  weekday_text?: string[];
+  open_now?: boolean;
+  periods?: unknown[];
+}
+
+const PlacesTable = ({ places, onRefresh, queryId, loading }: PlacesTableProps) => {
+  const [refreshTextSearch, setRefreshTextSearch] = useState<boolean>(false);
+  const [refreshDetails, setRefreshDetails] = useState<boolean>(false);
+  const [maxDetails, setMaxDetails] = useState<string>('');
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
 
   const handleRefresh = () => {
+    if (!queryId) return;
     onRefresh({
       search_query_id: queryId,
       refresh_text_search: refreshTextSearch,
@@ -136,12 +151,12 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
   }, [places, startIndex, endIndex]);
 
   // Reset to page 1 when items per page changes
-  const handleItemsPerPageChange = (newValue) => {
+  const handleItemsPerPageChange = (newValue: number) => {
     setItemsPerPage(newValue);
     setCurrentPage(1);
   };
 
-  const handlePageChange = (newPage) => {
+  const handlePageChange = (newPage: number) => {
     setCurrentPage(Math.max(1, Math.min(newPage, totalPages)));
   };
 
@@ -272,7 +287,7 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
               let openingHoursDisplay = '-';
               if (place.opening_hours) {
                 try {
-                  const hours = JSON.parse(place.opening_hours);
+                  const hours: OpeningHoursData = JSON.parse(place.opening_hours);
                   if (hours.weekday_text && Array.isArray(hours.weekday_text)) {
                     openingHoursDisplay = hours.weekday_text.join('; ');
                   } else if (hours.open_now !== undefined) {
@@ -287,7 +302,7 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
               let typesDisplay = '-';
               if (place.types) {
                 try {
-                  const types = JSON.parse(place.types);
+                  const types: unknown = JSON.parse(place.types);
                   if (Array.isArray(types)) {
                     typesDisplay = types.join(', ');
                   } else {
@@ -304,7 +319,7 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
                 : '-';
               
               // Format dates
-              const formatDate = (dateString) => {
+              const formatDate = (dateString: string | undefined): string => {
                 if (!dateString) return '-';
                 try {
                   const date = new Date(dateString);
@@ -330,9 +345,12 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
                         src={place.photo_url} 
                         alt={place.name}
                         style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'inline';
+                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          if (target.nextSibling) {
+                            (target.nextSibling as HTMLElement).style.display = 'inline';
+                          }
                         }}
                       />
                     ) : (
@@ -394,7 +412,7 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
             <select
               id="itemsPerPage"
               value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => handleItemsPerPageChange(Number(e.target.value))}
               style={styles.itemsPerPageSelect}
             >
               <option value={10}>10</option>
@@ -449,22 +467,28 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
 };
 
 // Place Details Modal Component
-const PlaceModal = ({ place, onClose }) => {
+interface PlaceModalProps {
+  place: Place;
+  onClose: () => void;
+}
+
+const PlaceModal = ({ place, onClose }: PlaceModalProps) => {
   // Parse opening hours
-  let openingHoursData = null;
+  let openingHoursData: OpeningHoursData | null = null;
   if (place.opening_hours) {
     try {
-      openingHoursData = JSON.parse(place.opening_hours);
+      openingHoursData = JSON.parse(place.opening_hours) as OpeningHoursData;
     } catch (e) {
       openingHoursData = { weekday_text: [place.opening_hours] };
     }
   }
   
   // Parse types
-  let typesArray = [];
+  let typesArray: string[] = [];
   if (place.types) {
     try {
-      typesArray = JSON.parse(place.types);
+      const parsed = JSON.parse(place.types);
+      typesArray = Array.isArray(parsed) ? parsed : [place.types];
     } catch (e) {
       typesArray = [place.types];
     }
@@ -476,7 +500,7 @@ const PlaceModal = ({ place, onClose }) => {
     : 'Not specified';
   
   // Format dates
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
@@ -497,7 +521,7 @@ const PlaceModal = ({ place, onClose }) => {
         }
       `}</style>
       <div style={modalStyles.overlay} onClick={onClose}>
-        <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={modalStyles.modal} onClick={(e: MouseEvent) => e.stopPropagation()}>
           <div style={modalStyles.header}>
             <h2 style={modalStyles.title}>{place.name || 'Place Details'}</h2>
             <button className="modal-close-button" style={modalStyles.closeButton} onClick={onClose}>×</button>
@@ -511,7 +535,9 @@ const PlaceModal = ({ place, onClose }) => {
                 src={place.photo_url} 
                 alt={place.name}
                 style={modalStyles.photo}
-                onError={(e) => e.target.style.display = 'none'}
+                onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
               />
             </div>
           )}
@@ -679,7 +705,7 @@ const PlaceModal = ({ place, onClose }) => {
   );
 };
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   actions: {
     marginBottom: '1rem',
     display: 'flex',
@@ -816,7 +842,7 @@ const styles = {
   },
 };
 
-const modalStyles = {
+const modalStyles: { [key: string]: React.CSSProperties } = {
   overlay: {
     position: 'fixed',
     top: 0,

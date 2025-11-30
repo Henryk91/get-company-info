@@ -1,18 +1,24 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
+import { Place } from '../services/api';
 
 // Fix for default marker icon in React
-delete L.Icon.Default.prototype._getIconUrl;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-const MapView = ({ places }) => {
-  const mapRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const markersRef = useRef([]);
+interface MapViewProps {
+  places: Place[];
+}
+
+const MapView = ({ places }: MapViewProps) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -37,10 +43,10 @@ const MapView = ({ places }) => {
       const validPlaces = places.filter(p => p.latitude && p.longitude);
       
       if (validPlaces.length > 0) {
-        const bounds = L.latLngBounds(validPlaces.map(p => [p.latitude, p.longitude]));
+        const bounds = L.latLngBounds(validPlaces.map(p => [p.latitude!, p.longitude!]));
         
         validPlaces.forEach(place => {
-          const marker = L.marker([place.latitude, place.longitude])
+          const marker = L.marker([place.latitude!, place.longitude!])
             .addTo(map)
             .bindPopup(`<b>${place.name}</b><br/>${place.address || place.formatted_address || ''}`);
           markersRef.current.push(marker);
@@ -58,7 +64,7 @@ const MapView = ({ places }) => {
   return <div ref={mapRef} style={styles.map} />;
 };
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   map: {
     height: '400px',
     width: '100%',

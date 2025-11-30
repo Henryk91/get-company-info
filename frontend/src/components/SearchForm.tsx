@@ -1,11 +1,17 @@
-import { useState } from 'react';
+import { useState, FormEvent, ChangeEvent } from 'react';
+import { SearchRequest } from '../services/api';
 
-const SearchForm = ({ onSearch, loading }) => {
-  const [city, setCity] = useState('');
-  const [category, setCategory] = useState('');
-  const [maxDetails, setMaxDetails] = useState('');
+interface SearchFormProps {
+  onSearch: (data: SearchRequest) => void;
+  loading: boolean;
+}
 
-  const handleSubmit = (e) => {
+const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
+  const [city, setCity] = useState<string>('');
+  const [category, setCategory] = useState<string>('');
+  const [maxDetails, setMaxDetails] = useState<string>('');
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     onSearch({
       city: city.trim(),
@@ -50,7 +56,7 @@ const SearchForm = ({ onSearch, loading }) => {
           <input
             type="text"
             value={city}
-            onChange={(e) => setCity(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setCity(e.target.value)}
             placeholder="e.g., New York"
             required
             style={styles.input}
@@ -61,7 +67,7 @@ const SearchForm = ({ onSearch, loading }) => {
           <input
             type="text"
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setCategory(e.target.value)}
             placeholder="e.g., restaurants, hotels, coffee shops"
             required
             style={styles.input}
@@ -72,7 +78,7 @@ const SearchForm = ({ onSearch, loading }) => {
           <input
             type="number"
             value={maxDetails}
-            onChange={(e) => setMaxDetails(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setMaxDetails(e.target.value)}
             placeholder="Limit API calls"
             min="0"
             style={styles.input}
@@ -86,7 +92,7 @@ const SearchForm = ({ onSearch, loading }) => {
   );
 };
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   inputGroup: {
     display: 'flex',
     flexDirection: 'column',
