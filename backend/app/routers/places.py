@@ -14,7 +14,8 @@ from ..google_places import (
     search_places_by_category,
     get_place_details,
     format_place_data,
-    format_place_details
+    format_place_details,
+    is_google_access_allowed
 )
 from ..logging_config import get_logger
 import json
@@ -22,6 +23,14 @@ import json
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/places", tags=["places"])
+
+def _ensure_google_access(current_user: User):
+    if not is_google_access_allowed(current_user.email):
+        logger.warning(f"User {current_user.email} attempted Google API access but is not allowlisted")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Google API access is restricted for this account"
+        )
 
 @router.post("/search", response_model=SearchQueryResponse)
 def search_places(
@@ -48,6 +57,8 @@ def search_places(
     if existing_query:
         logger.info(f"Returning cached search query (ID: {existing_query.id}) with {len(existing_query.places)} places")
         return existing_query
+    
+    _ensure_google_access(current_user)
     
     # Create new search query
     logger.info(f"Creating new search query for city='{city}', category='{category}' for user {current_user.username}")
@@ -152,6 +163,9 @@ def refresh_places(
         )
     
     try:
+        if refresh_request.refresh_text_search or refresh_request.refresh_details:
+            _ensure_google_access(current_user)
+        
         if refresh_request.refresh_text_search:
             logger.info(f"Refreshing text search for query ID {search_query.id} (city='{search_query.city}', category='{search_query.category}')")
             # Delete existing places
@@ -264,4 +278,3 @@ def fetch_place_details(db: Session, search_query_id: int, max_details: int):
     
     db.commit()
     logger.info(f"Place details fetch completed: {success_count} successful, {error_count} errors")
-

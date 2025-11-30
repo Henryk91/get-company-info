@@ -12,11 +12,33 @@ logger = get_logger(__name__)
 GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
 GOOGLE_PLACES_API_BASE_URL = "https://maps.googleapis.com/maps/api/place"
 
+# Optional allowlist for Google API calls
+_allow_emails_env = os.getenv("ALLOW_EMAILS")
+ALLOWED_GOOGLE_API_EMAILS = (
+    {email.strip().lower() for email in _allow_emails_env.split(",") if email.strip()}
+    if _allow_emails_env
+    else None
+)
+
 if not GOOGLE_PLACES_API_KEY:
     logger.error("GOOGLE_PLACES_API_KEY not set in environment variables")
     raise ValueError("GOOGLE_PLACES_API_KEY must be set in environment variables")
 
+if ALLOWED_GOOGLE_API_EMAILS is not None:
+    logger.info(f"Google Places API access restricted via ALLOW_EMAILS (count={len(ALLOWED_GOOGLE_API_EMAILS)})")
+else:
+    logger.info("Google Places API access allowed for all authenticated users (ALLOW_EMAILS not set)")
+
 logger.info("Google Places API module initialized")
+
+def is_google_access_allowed(user_email: str) -> bool:
+    """
+    Return True if the given user_email is allowed to call Google APIs.
+    If ALLOW_EMAILS is unset, all users are allowed.
+    """
+    if ALLOWED_GOOGLE_API_EMAILS is None:
+        return True
+    return user_email.lower() in ALLOWED_GOOGLE_API_EMAILS
 
 def text_search(query: str, location: Optional[str] = None) -> Dict:
     """
@@ -173,4 +195,3 @@ def format_place_details(place_details: Dict) -> Dict:
         "photo_url": photo_url,
         "has_details": True
     }
-
