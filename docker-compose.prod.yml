@@ -17,14 +17,14 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
+  app:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: company_info_backend_prod
+    container_name: company_info_app_prod
     environment:
       DB_TYPE: ${DB_TYPE:-postgres}
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL: ${DATABASE_URL}
       SECRET_KEY: ${SECRET_KEY}
       GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY}
     ports:
@@ -32,19 +32,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: company_info_frontend_prod
-    environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
     restart: unless-stopped
 
 volumes:

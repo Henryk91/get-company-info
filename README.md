@@ -26,21 +26,19 @@ get-company-info/
 │   │   ├── auth.py       # JWT authentication
 │   │   ├── google_places.py  # Google Places API integration
 │   │   └── routers/      # API routes
-│   ├── requirements.txt  # Python dependencies
-│   ├── Dockerfile        # Backend Docker image
-│   └── .env.example      # Backend environment template
+│   └── requirements.txt  # Python dependencies
 ├── frontend/             # React frontend
 │   ├── src/
 │   │   ├── components/   # React components
 │   │   ├── services/     # API service layer
 │   │   └── App.jsx       # Main application
-│   ├── package.json      # Node dependencies
-│   ├── Dockerfile        # Production frontend image
-│   └── Dockerfile.dev    # Development frontend image
+│   └── package.json      # Node dependencies
+├── Dockerfile            # Single container for frontend + backend
 ├── docker-compose.yml    # Local development setup
 ├── docker-compose.prod.yml  # Production setup
 ├── setup.sh              # Setup script
 ├── run.sh                # Local run script
+├── .env.example          # Environment variables template
 └── README.md             # This file
 ```
 
@@ -66,10 +64,8 @@ get-company-info/
    ```env
    GOOGLE_PLACES_API_KEY=your-api-key-here
    SECRET_KEY=your-secret-key-min-32-chars
+   DATABASE_URL=postgresql://postgres:postgres@db:5432/company_info
    DB_TYPE=postgres
-   POSTGRES_USER=postgres
-   POSTGRES_PASSWORD=postgres
-   POSTGRES_DB=company_info
    ```
 
 3. **Run with Docker:**
@@ -78,8 +74,7 @@ get-company-info/
    ```
 
 4. **Access the application:**
-   - Frontend: http://localhost:5173
-   - Backend API: http://localhost:8000
+   - Application: http://localhost:8000
    - API Docs: http://localhost:8000/docs
 
 ### Option 2: Local Development
@@ -114,31 +109,28 @@ get-company-info/
 
 ### Environment Variables
 
-#### Backend (.env or backend/.env)
+#### Environment Variables (.env)
 
-- `DB_TYPE`: Database type - `postgres` or `sqlite` (default: `sqlite`)
 - `DATABASE_URL`: Database connection string
   - PostgreSQL: `postgresql://user:password@host:port/dbname`
   - SQLite: `sqlite:///./company_info.db`
+  - If not set, defaults to SQLite
+- `DB_TYPE`: Database type - `postgres` or `sqlite` (optional - auto-detected from DATABASE_URL)
 - `SECRET_KEY`: JWT secret key (minimum 32 characters)
 - `GOOGLE_PLACES_API_KEY`: Your Google Places API key
-
-#### Frontend
-
-- `VITE_API_URL`: Backend API URL (default: `http://localhost:8000`)
 
 ### Database Configuration
 
 #### Using SQLite (Default)
 ```env
-DB_TYPE=sqlite
 DATABASE_URL=sqlite:///./company_info.db
+# Or omit DATABASE_URL to use default SQLite
 ```
 
 #### Using PostgreSQL
 ```env
-DB_TYPE=postgres
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/company_info
+DATABASE_URL=postgresql://user:password@host:port/dbname
+# DB_TYPE is optional - auto-detected from DATABASE_URL
 ```
 
 ## Usage
@@ -198,13 +190,15 @@ See full API documentation at http://localhost:8000/docs
 1. **Create production `.env` file:**
    ```bash
    cp .env.example .env
-   # Edit with production values
+   # Edit with production values (DATABASE_URL, SECRET_KEY, GOOGLE_PLACES_API_KEY)
    ```
 
 2. **Run production setup:**
    ```bash
    docker-compose -f docker-compose.prod.yml up -d --build
    ```
+
+   The application will be available at http://localhost:8000
 
 ### Manual Deployment
 

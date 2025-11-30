@@ -18,14 +18,14 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
+  app:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: company_info_backend
+    container_name: company_info_app
     environment:
       DB_TYPE: ${DB_TYPE:-postgres}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-company_info}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/company_info}
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-this-in-production}
       GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY}
     ports:
@@ -35,22 +35,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend/app:/app/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    container_name: company_info_frontend
-    environment:
-      VITE_API_URL: http://localhost:8000
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    restart: unless-stopped
 
 volumes:
   postgres_data:
