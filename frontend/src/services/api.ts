@@ -26,6 +26,7 @@ export interface UserCreate {
 }
 
 export interface LoginData {
+  email?: string;
   username: string;
   password: string;
 }
@@ -118,6 +119,7 @@ export const authAPI = {
   register: (data: UserCreate) => api.post<User>('/api/auth/register', data),
   login: (data: LoginData) => {
     const formData = new FormData();
+    formData.append('email', data.username);
     formData.append('username', data.username);
     formData.append('password', data.password);
     return api.post<Token>('/api/auth/login', formData, {

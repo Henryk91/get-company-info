@@ -111,8 +111,8 @@ const Login = ({ onLogin }: LoginProps) => {
         <h2 style={styles.title}>{isLogin ? 'Login' : 'Register'}</h2>
         <form onSubmit={handleSubmit} style={styles.form}>
           <input
-            type="text"
-            placeholder="Username"
+            type="email"
+            placeholder="Email"
             value={formData.username}
             onChange={handleInputChange('username')}
             required

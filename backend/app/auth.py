@@ -75,15 +75,18 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 def get_user_by_username(db: Session, username: str) -> Optional[User]:
     return db.query(User).filter(User.username == username).first()
 
-def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
-    user = get_user_by_username(db, username)
+def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    return db.query(User).filter(User.email == email).first()
+
+def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
+    user = get_user_by_email(db, email)
     if not user:
-        logger.debug(f"Authentication failed: user '{username}' not found")
+        logger.debug(f"Authentication failed: user '{email}' not found")
         return None
     if not verify_password(password, user.hashed_password):
-        logger.debug(f"Authentication failed: invalid password for user '{username}'")
+        logger.debug(f"Authentication failed: invalid password for user '{email}'")
         return None
-    logger.debug(f"Authentication successful for user '{username}'")
+    logger.debug(f"Authentication successful for user '{email}'")
     return user
 
 async def get_current_user(
