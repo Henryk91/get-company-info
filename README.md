@@ -26,12 +26,17 @@ get-company-info/
 │   │   ├── auth.py       # JWT authentication
 │   │   ├── google_places.py  # Google Places API integration
 │   │   └── routers/      # API routes
+│   ├── alembic/          # Alembic migrations
+│   │   ├── versions/     # Migration files
+│   │   └── env.py        # Alembic environment config
+│   ├── alembic.ini       # Alembic configuration
+│   ├── migrate.sh        # Migration helper script
 │   └── requirements.txt  # Python dependencies
-├── frontend/             # React frontend
+├── frontend/             # React frontend (TypeScript)
 │   ├── src/
 │   │   ├── components/   # React components
 │   │   ├── services/     # API service layer
-│   │   └── App.jsx       # Main application
+│   │   └── App.tsx       # Main application
 │   └── package.json      # Node dependencies
 ├── Dockerfile            # Single container for frontend + backend
 ├── docker-compose.yml    # Local development setup
@@ -133,6 +138,123 @@ DATABASE_URL=sqlite:///./company_info.db
 DATABASE_URL=postgresql://user:password@host:port/dbname
 # DB_TYPE is optional - auto-detected from DATABASE_URL
 ```
+
+### Database Migrations with Alembic
+
+This project uses [Alembic](https://alembic.sqlalchemy.org/) for database migrations. Alembic tracks database schema changes and allows you to version control your database structure.
+
+#### Initializing a New Database
+
+For a new database, run all migrations to set up the schema:
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+Or use the helper script:
+```bash
+cd backend
+./migrate.sh init
+```
+
+#### Creating Migrations
+
+When you modify database models in `backend/app/models.py`, create a new migration:
+
+```bash
+cd backend
+alembic revision --autogenerate -m "description of changes"
+```
+
+Or use the helper script:
+```bash
+cd backend
+./migrate.sh create "description of changes"
+```
+
+**Example:**
+```bash
+./migrate.sh create "add_user_id_to_search_queries"
+```
+
+#### Applying Migrations
+
+To apply pending migrations:
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+Or use the helper script:
+```bash
+cd backend
+./migrate.sh migrate
+```
+
+#### Other Useful Commands
+
+- **Check current revision:**
+  ```bash
+  alembic current
+  # or
+  ./migrate.sh current
+  ```
+
+- **View migration history:**
+  ```bash
+  alembic history
+  # or
+  ./migrate.sh history
+  ```
+
+- **Rollback one migration:**
+  ```bash
+  alembic downgrade -1
+  # or
+  ./migrate.sh downgrade -1
+  ```
+
+- **Rollback all migrations:**
+  ```bash
+  alembic downgrade base
+  # or
+  ./migrate.sh downgrade base
+  ```
+
+#### Migration Helper Script
+
+The `backend/migrate.sh` script provides a convenient interface for common migration tasks:
+
+```bash
+cd backend
+./migrate.sh <command> [options]
+```
+
+Available commands:
+- `init` - Initialize database (run all migrations)
+- `create <message>` - Create a new migration from model changes
+- `migrate` - Run all pending migrations
+- `downgrade <revision>` - Downgrade database
+- `current` - Show current database revision
+- `history` - Show migration history
+
+#### Migration Workflow
+
+1. **Modify models** in `backend/app/models.py`
+2. **Create migration:**
+   ```bash
+   cd backend
+   ./migrate.sh create "description of changes"
+   ```
+3. **Review the generated migration file** in `backend/alembic/versions/`
+4. **Apply migration:**
+   ```bash
+   ./migrate.sh migrate
+   ```
+
+**Note:** The application still uses `Base.metadata.create_all()` for backward compatibility, but it's recommended to use Alembic migrations for production deployments.
 
 ## Usage
 

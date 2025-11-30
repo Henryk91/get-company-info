@@ -19,10 +19,12 @@ class SearchQuery(Base):
     id = Column(Integer, primary_key=True, index=True)
     city = Column(String, nullable=False, index=True)
     category = Column(String, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     places = relationship("Place", back_populates="search_query", cascade="all, delete-orphan")
+    user = relationship("User")
 
 class Place(Base):
     __tablename__ = "places"

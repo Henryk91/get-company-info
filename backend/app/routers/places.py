@@ -38,10 +38,11 @@ def search_places(
     
     logger.info(f"Search request from user {current_user.username} (ID: {current_user.id}): city='{city}', category='{category}', max_details={search_request.max_details}")
     
-    # Check if search query already exists
+    # Check if search query already exists for this user
     existing_query = db.query(SearchQuery).filter(
         SearchQuery.city == city,
-        SearchQuery.category == category
+        SearchQuery.category == category,
+        SearchQuery.user_id == current_user.id
     ).first()
     
     if existing_query:
@@ -49,8 +50,8 @@ def search_places(
         return existing_query
     
     # Create new search query
-    logger.info(f"Creating new search query for city='{city}', category='{category}'")
-    search_query = SearchQuery(city=city, category=category)
+    logger.info(f"Creating new search query for city='{city}', category='{category}' for user {current_user.username}")
+    search_query = SearchQuery(city=city, category=category, user_id=current_user.id)
     db.add(search_query)
     db.commit()
     db.refresh(search_query)
@@ -95,10 +96,10 @@ def get_all_queries(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get all search queries"""
+    """Get all search queries for the current user"""
     logger.debug(f"User {current_user.username} requested all search queries")
-    queries = db.query(SearchQuery).all()
-    logger.info(f"Returning {len(queries)} search queries")
+    queries = db.query(SearchQuery).filter(SearchQuery.user_id == current_user.id).all()
+    logger.info(f"Returning {len(queries)} search queries for user {current_user.username}")
     return queries
 
 @router.get("/queries/{query_id}", response_model=SearchQueryResponse)
@@ -107,11 +108,14 @@ def get_query(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get a specific search query with places"""
+    """Get a specific search query with places (only if it belongs to the current user)"""
     logger.debug(f"User {current_user.username} requested search query ID: {query_id}")
-    query = db.query(SearchQuery).filter(SearchQuery.id == query_id).first()
+    query = db.query(SearchQuery).filter(
+        SearchQuery.id == query_id,
+        SearchQuery.user_id == current_user.id
+    ).first()
     if not query:
-        logger.warning(f"Search query ID {query_id} not found")
+        logger.warning(f"Search query ID {query_id} not found or doesn't belong to user {current_user.username}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Search query not found"
@@ -136,11 +140,12 @@ def refresh_places(
     )
     
     search_query = db.query(SearchQuery).filter(
-        SearchQuery.id == refresh_request.search_query_id
+        SearchQuery.id == refresh_request.search_query_id,
+        SearchQuery.user_id == current_user.id
     ).first()
     
     if not search_query:
-        logger.warning(f"Search query ID {refresh_request.search_query_id} not found for refresh")
+        logger.warning(f"Search query ID {refresh_request.search_query_id} not found or doesn't belong to user {current_user.username}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Search query not found"
@@ -201,11 +206,14 @@ def get_places(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get all places for a search query"""
+    """Get all places for a search query (only if it belongs to the current user)"""
     logger.debug(f"User {current_user.username} requested places for query ID: {query_id}")
-    search_query = db.query(SearchQuery).filter(SearchQuery.id == query_id).first()
+    search_query = db.query(SearchQuery).filter(
+        SearchQuery.id == query_id,
+        SearchQuery.user_id == current_user.id
+    ).first()
     if not search_query:
-        logger.warning(f"Search query ID {query_id} not found")
+        logger.warning(f"Search query ID {query_id} not found or doesn't belong to user {current_user.username}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Search query not found"

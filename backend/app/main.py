@@ -15,6 +15,9 @@ logger = get_logger(__name__)
 logger.info("Starting application...")
 
 # Create database tables
+# Note: For production, use Alembic migrations instead:
+#   alembic upgrade head
+# This create_all is kept for backward compatibility and development convenience
 try:
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables created/verified successfully")
