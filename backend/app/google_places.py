@@ -55,7 +55,7 @@ def get_place_details(place_id: str) -> Dict:
     url = f"{GOOGLE_PLACES_API_BASE_URL}/details/json"
     params = {
         "place_id": place_id,
-        "fields": "name,formatted_address,geometry,rating,user_ratings_total,formatted_phone_number,international_phone_number,website,business_status,types,opening_hours,price_level",
+        "fields": "name,formatted_address,geometry,rating,user_ratings_total,formatted_phone_number,international_phone_number,website,business_status,types,opening_hours,price_level,editorial_summary,photos",
         "key": GOOGLE_PLACES_API_KEY
     }
     
@@ -132,6 +132,29 @@ def format_place_details(place_details: Dict) -> Dict:
     location = geometry.get("location", {})
     opening_hours = result.get("opening_hours", {})
     
+    # Get description from editorial_summary
+    editorial_summary = result.get("editorial_summary", {})
+    description = editorial_summary.get("overview") if editorial_summary else None
+    
+    # Get photo (first photo if available)
+    photos = result.get("photos", [])
+    photo_reference = None
+    photo_url = None
+    if photos and len(photos) > 0:
+        photo_reference = photos[0].get("photo_reference")
+        if photo_reference:
+            # Build photo URL (maxwidth 400 for reasonable size)
+            photo_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={photo_reference}&key={GOOGLE_PLACES_API_KEY}"
+    
+    # Format opening hours - include both weekday_text and periods if available
+    opening_hours_data = {}
+    if opening_hours.get("weekday_text"):
+        opening_hours_data["weekday_text"] = opening_hours.get("weekday_text")
+    if opening_hours.get("periods"):
+        opening_hours_data["periods"] = opening_hours.get("periods")
+    if opening_hours.get("open_now") is not None:
+        opening_hours_data["open_now"] = opening_hours.get("open_now")
+    
     return {
         "formatted_address": result.get("formatted_address"),
         "latitude": location.get("lat"),
@@ -143,8 +166,11 @@ def format_place_details(place_details: Dict) -> Dict:
         "website": result.get("website"),
         "business_status": result.get("business_status"),
         "types": json.dumps(result.get("types", [])),
-        "opening_hours": json.dumps(opening_hours.get("weekday_text", [])) if opening_hours.get("weekday_text") else None,
+        "opening_hours": json.dumps(opening_hours_data) if opening_hours_data else None,
         "price_level": result.get("price_level"),
+        "description": description,
+        "photo_reference": photo_reference,
+        "photo_url": photo_url,
         "has_details": True
     }
 

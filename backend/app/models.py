@@ -45,6 +45,9 @@ class Place(Base):
     international_phone_number = Column(String)
     opening_hours = Column(Text)  # JSON string
     price_level = Column(Integer)
+    description = Column(Text)  # Place description/review summary
+    photo_reference = Column(String)  # Photo reference from Google Places
+    photo_url = Column(String)  # Full photo URL
     has_details = Column(Boolean, default=False)  # Whether Place Details API was called
     search_query_id = Column(Integer, ForeignKey("search_queries.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

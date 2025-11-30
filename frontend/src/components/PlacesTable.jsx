@@ -4,6 +4,8 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
   const [refreshTextSearch, setRefreshTextSearch] = useState(false);
   const [refreshDetails, setRefreshDetails] = useState(false);
   const [maxDetails, setMaxDetails] = useState('');
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   const handleRefresh = () => {
     onRefresh({
@@ -18,34 +20,93 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
     if (!places || places.length === 0) return;
 
     const headers = [
+      'Place ID',
       'Name',
-      'Address',
       'City',
       'Category',
+      'Address',
+      'Formatted Address',
+      'Description',
+      'Types',
       'Rating',
       'Total Ratings',
+      'Price Level',
+      'Opening Hours',
       'Phone',
+      'International Phone',
       'Website',
       'Business Status',
-      'Price Level',
       'Latitude',
       'Longitude',
+      'Photo Reference',
+      'Photo URL',
+      'Has Details',
+      'Created At',
+      'Updated At',
     ];
 
-    const rows = places.map(place => [
-      place.name || '',
-      place.formatted_address || place.address || '',
-      place.city || '',
-      place.category || '',
-      place.rating || '',
-      place.user_ratings_total || '',
-      place.international_phone_number || place.phone_number || '',
-      place.website || '',
-      place.business_status || '',
-      place.price_level || '',
-      place.latitude || '',
-      place.longitude || '',
-    ]);
+    const rows = places.map(place => {
+      // Format opening hours for CSV
+      let openingHours = '';
+      if (place.opening_hours) {
+        try {
+          const hours = JSON.parse(place.opening_hours);
+          if (hours.weekday_text && Array.isArray(hours.weekday_text)) {
+            openingHours = hours.weekday_text.join('; ');
+          } else if (hours.open_now !== undefined) {
+            openingHours = hours.open_now ? 'Open Now' : 'Closed Now';
+          }
+        } catch (e) {
+          openingHours = place.opening_hours;
+        }
+      }
+      
+      // Format types for CSV
+      let types = '';
+      if (place.types) {
+        try {
+          const typesArray = JSON.parse(place.types);
+          if (Array.isArray(typesArray)) {
+            types = typesArray.join(', ');
+          } else {
+            types = place.types;
+          }
+        } catch (e) {
+          types = place.types;
+        }
+      }
+      
+      // Format price level
+      const priceLevel = place.price_level !== null && place.price_level !== undefined 
+        ? '$'.repeat(place.price_level) 
+        : '';
+      
+      return [
+        place.place_id || '',
+        place.name || '',
+        place.city || '',
+        place.category || '',
+        place.address || '',
+        place.formatted_address || '',
+        place.description || '',
+        types,
+        place.rating || '',
+        place.user_ratings_total || '',
+        priceLevel,
+        openingHours,
+        place.phone_number || '',
+        place.international_phone_number || '',
+        place.website || '',
+        place.business_status || '',
+        place.latitude || '',
+        place.longitude || '',
+        place.photo_reference || '',
+        place.photo_url || '',
+        place.has_details ? 'Yes' : 'No',
+        place.created_at || '',
+        place.updated_at || '',
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
@@ -84,8 +145,11 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
           padding: 0.75rem;
           border-bottom: 1px solid #dee2e6;
         }
+        .places-table tbody tr {
+          transition: background-color 0.2s;
+        }
         .places-table tbody tr:hover {
-          background-color: #f8f9fa;
+          background-color: #e9ecef;
         }
       `}</style>
       <div style={styles.actions}>
@@ -136,41 +200,380 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
         <table className="places-table" style={styles.table}>
           <thead>
             <tr>
+              <th>Photo</th>
+              <th>Place ID</th>
               <th>Name</th>
+              <th>City</th>
+              <th>Category</th>
               <th>Address</th>
+              <th>Formatted Address</th>
+              <th>Description</th>
+              <th>Types</th>
               <th>Rating</th>
               <th>Total Ratings</th>
+              <th>Price Level</th>
+              <th>Opening Hours</th>
               <th>Phone</th>
+              <th>International Phone</th>
               <th>Website</th>
-              <th>Status</th>
+              <th>Business Status</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
               <th>Has Details</th>
+              <th>Created At</th>
+              <th>Updated At</th>
             </tr>
           </thead>
           <tbody>
-            {places.map((place) => (
-              <tr key={place.id}>
-                <td>{place.name}</td>
-                <td>{place.formatted_address || place.address || '-'}</td>
-                <td>{place.rating ? place.rating.toFixed(1) : '-'}</td>
-                <td>{place.user_ratings_total || '-'}</td>
-                <td>{place.international_phone_number || place.phone_number || '-'}</td>
-                <td>
-                  {place.website ? (
-                    <a href={place.website} target="_blank" rel="noopener noreferrer">
-                      Visit
-                    </a>
-                  ) : (
-                    '-'
-                  )}
-                </td>
-                <td>{place.business_status || '-'}</td>
-                <td>{place.has_details ? '✓' : '✗'}</td>
-              </tr>
-            ))}
+            {places.map((place) => {
+              // Parse opening hours if available
+              let openingHoursDisplay = '-';
+              if (place.opening_hours) {
+                try {
+                  const hours = JSON.parse(place.opening_hours);
+                  if (hours.weekday_text && Array.isArray(hours.weekday_text)) {
+                    openingHoursDisplay = hours.weekday_text.join('; ');
+                  } else if (hours.open_now !== undefined) {
+                    openingHoursDisplay = hours.open_now ? 'Open Now' : 'Closed Now';
+                  }
+                } catch (e) {
+                  openingHoursDisplay = place.opening_hours;
+                }
+              }
+              
+              // Parse types if available
+              let typesDisplay = '-';
+              if (place.types) {
+                try {
+                  const types = JSON.parse(place.types);
+                  if (Array.isArray(types)) {
+                    typesDisplay = types.join(', ');
+                  } else {
+                    typesDisplay = place.types;
+                  }
+                } catch (e) {
+                  typesDisplay = place.types;
+                }
+              }
+              
+              // Format price level
+              const priceLevelDisplay = place.price_level !== null && place.price_level !== undefined 
+                ? '$'.repeat(place.price_level) 
+                : '-';
+              
+              // Format dates
+              const formatDate = (dateString) => {
+                if (!dateString) return '-';
+                try {
+                  const date = new Date(dateString);
+                  return date.toLocaleString();
+                } catch (e) {
+                  return dateString;
+                }
+              };
+              
+              return (
+                <tr 
+                  key={place.id}
+                  onClick={() => {
+                    setSelectedPlace(place);
+                    setShowModal(true);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td>
+                    {place.photo_url ? (
+                      <img 
+                        src={place.photo_url} 
+                        alt={place.name}
+                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'inline';
+                        }}
+                      />
+                    ) : (
+                      <span style={{ color: '#999' }}>No photo</span>
+                    )}
+                  </td>
+                  <td style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>{place.place_id || '-'}</td>
+                  <td>{place.name || '-'}</td>
+                  <td>{place.city || '-'}</td>
+                  <td>{place.category || '-'}</td>
+                  <td>{place.address || '-'}</td>
+                  <td>{place.formatted_address || '-'}</td>
+                  <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {place.description || '-'}
+                  </td>
+                  <td style={{ maxWidth: '150px', fontSize: '0.875rem' }} title={typesDisplay}>
+                    {typesDisplay.length > 50 ? typesDisplay.substring(0, 50) + '...' : typesDisplay}
+                  </td>
+                  <td>{place.rating ? place.rating.toFixed(1) : '-'}</td>
+                  <td>{place.user_ratings_total || '-'}</td>
+                  <td>{priceLevelDisplay}</td>
+                  <td style={{ maxWidth: '150px', fontSize: '0.875rem' }} title={openingHoursDisplay}>
+                    {openingHoursDisplay.length > 50 ? openingHoursDisplay.substring(0, 50) + '...' : openingHoursDisplay}
+                  </td>
+                  <td>{place.phone_number || '-'}</td>
+                  <td>{place.international_phone_number || '-'}</td>
+                  <td>
+                    {place.website ? (
+                      <a href={place.website} target="_blank" rel="noopener noreferrer">
+                        Visit
+                      </a>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+                  <td>{place.business_status || '-'}</td>
+                  <td>{place.latitude ? place.latitude.toFixed(6) : '-'}</td>
+                  <td>{place.longitude ? place.longitude.toFixed(6) : '-'}</td>
+                  <td>{place.has_details ? '✓' : '✗'}</td>
+                  <td style={{ fontSize: '0.875rem' }}>{formatDate(place.created_at)}</td>
+                  <td style={{ fontSize: '0.875rem' }}>{formatDate(place.updated_at)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+      
+      {/* Place Details Modal */}
+      {showModal && selectedPlace && (
+        <PlaceModal place={selectedPlace} onClose={() => setShowModal(false)} />
+      )}
     </div>
+  );
+};
+
+// Place Details Modal Component
+const PlaceModal = ({ place, onClose }) => {
+  // Parse opening hours
+  let openingHoursData = null;
+  if (place.opening_hours) {
+    try {
+      openingHoursData = JSON.parse(place.opening_hours);
+    } catch (e) {
+      openingHoursData = { weekday_text: [place.opening_hours] };
+    }
+  }
+  
+  // Parse types
+  let typesArray = [];
+  if (place.types) {
+    try {
+      typesArray = JSON.parse(place.types);
+    } catch (e) {
+      typesArray = [place.types];
+    }
+  }
+  
+  // Format price level
+  const priceLevel = place.price_level !== null && place.price_level !== undefined 
+    ? '$'.repeat(place.price_level) 
+    : 'Not specified';
+  
+  // Format dates
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString();
+    } catch (e) {
+      return dateString;
+    }
+  };
+  
+  return (
+    <>
+      <style>{`
+        .modal-close-button:hover {
+          background-color: #f0f0f0 !important;
+        }
+        .modal-close-button:active {
+          background-color: #e0e0e0 !important;
+        }
+      `}</style>
+      <div style={modalStyles.overlay} onClick={onClose}>
+        <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+          <div style={modalStyles.header}>
+            <h2 style={modalStyles.title}>{place.name || 'Place Details'}</h2>
+            <button className="modal-close-button" style={modalStyles.closeButton} onClick={onClose}>×</button>
+          </div>
+        
+        <div style={modalStyles.content}>
+          {/* Photo Section */}
+          {place.photo_url && (
+            <div style={modalStyles.photoSection}>
+              <img 
+                src={place.photo_url} 
+                alt={place.name}
+                style={modalStyles.photo}
+                onError={(e) => e.target.style.display = 'none'}
+              />
+            </div>
+          )}
+          
+          {/* Basic Information */}
+          <div style={modalStyles.section}>
+            <h3 style={modalStyles.sectionTitle}>Basic Information</h3>
+            <div style={modalStyles.grid}>
+              <div style={modalStyles.field}>
+                <strong>Place ID:</strong>
+                <span style={modalStyles.monospace}>{place.place_id || 'N/A'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>Name:</strong>
+                <span>{place.name || 'N/A'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>Category:</strong>
+                <span>{place.category || 'N/A'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>City:</strong>
+                <span>{place.city || 'N/A'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>Business Status:</strong>
+                <span>{place.business_status || 'N/A'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>Price Level:</strong>
+                <span>{priceLevel}</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Address Information */}
+          <div style={modalStyles.section}>
+            <h3 style={modalStyles.sectionTitle}>Address</h3>
+            <div style={modalStyles.grid}>
+              <div style={modalStyles.field}>
+                <strong>Address:</strong>
+                <span>{place.address || 'N/A'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>Formatted Address:</strong>
+                <span>{place.formatted_address || 'N/A'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>Coordinates:</strong>
+                <span>
+                  {place.latitude && place.longitude 
+                    ? `${place.latitude.toFixed(6)}, ${place.longitude.toFixed(6)}`
+                    : 'N/A'}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Description */}
+          {place.description && (
+            <div style={modalStyles.section}>
+              <h3 style={modalStyles.sectionTitle}>Description</h3>
+              <p style={modalStyles.description}>{place.description}</p>
+            </div>
+          )}
+          
+          {/* Types */}
+          {typesArray.length > 0 && (
+            <div style={modalStyles.section}>
+              <h3 style={modalStyles.sectionTitle}>Business Types</h3>
+              <div style={modalStyles.tags}>
+                {typesArray.map((type, index) => (
+                  <span key={index} style={modalStyles.tag}>{type}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Ratings */}
+          <div style={modalStyles.section}>
+            <h3 style={modalStyles.sectionTitle}>Ratings</h3>
+            <div style={modalStyles.grid}>
+              <div style={modalStyles.field}>
+                <strong>Rating:</strong>
+                <span>{place.rating ? `${place.rating.toFixed(1)} / 5.0` : 'N/A'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>Total Ratings:</strong>
+                <span>{place.user_ratings_total || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Opening Hours */}
+          {openingHoursData && (
+            <div style={modalStyles.section}>
+              <h3 style={modalStyles.sectionTitle}>Opening Hours</h3>
+              {openingHoursData.weekday_text && openingHoursData.weekday_text.length > 0 ? (
+                <ul style={modalStyles.hoursList}>
+                  {openingHoursData.weekday_text.map((day, index) => (
+                    <li key={index}>{day}</li>
+                  ))}
+                </ul>
+              ) : openingHoursData.open_now !== undefined ? (
+                <p>{openingHoursData.open_now ? 'Open Now' : 'Closed Now'}</p>
+              ) : (
+                <p>Hours not available</p>
+              )}
+            </div>
+          )}
+          
+          {/* Contact Information */}
+          <div style={modalStyles.section}>
+            <h3 style={modalStyles.sectionTitle}>Contact Information</h3>
+            <div style={modalStyles.grid}>
+              <div style={modalStyles.field}>
+                <strong>Phone:</strong>
+                <span>{place.phone_number || 'N/A'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>International Phone:</strong>
+                <span>{place.international_phone_number || 'N/A'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>Website:</strong>
+                {place.website ? (
+                  <a href={place.website} target="_blank" rel="noopener noreferrer" style={modalStyles.link}>
+                    {place.website}
+                  </a>
+                ) : (
+                  <span>N/A</span>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Metadata */}
+          <div style={modalStyles.section}>
+            <h3 style={modalStyles.sectionTitle}>Metadata</h3>
+            <div style={modalStyles.grid}>
+              <div style={modalStyles.field}>
+                <strong>Has Details:</strong>
+                <span>{place.has_details ? 'Yes' : 'No'}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>Created At:</strong>
+                <span>{formatDate(place.created_at)}</span>
+              </div>
+              <div style={modalStyles.field}>
+                <strong>Updated At:</strong>
+                <span>{formatDate(place.updated_at)}</span>
+              </div>
+              {place.photo_reference && (
+                <div style={modalStyles.field}>
+                  <strong>Photo Reference:</strong>
+                  <span style={modalStyles.monospace}>{place.photo_reference}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </>
   );
 };
 
@@ -227,18 +630,147 @@ const styles = {
   },
   tableContainer: {
     overflowX: 'auto',
+    overflowY: 'auto',
+    maxHeight: '80vh',
     backgroundColor: 'white',
     borderRadius: '8px',
     boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
   },
   table: {
     width: '100%',
+    minWidth: '2000px', // Ensure table doesn't compress too much
     borderCollapse: 'collapse',
   },
   empty: {
     textAlign: 'center',
     padding: '2rem',
     color: '#666',
+  },
+};
+
+const modalStyles = {
+  overlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    padding: '2rem',
+  },
+  modal: {
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    maxWidth: '800px',
+    width: '100%',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+    position: 'relative',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '1.5rem',
+    borderBottom: '1px solid #dee2e6',
+    position: 'sticky',
+    top: 0,
+    backgroundColor: 'white',
+    zIndex: 10,
+  },
+  title: {
+    margin: 0,
+    fontSize: '1.5rem',
+    color: '#333',
+  },
+  closeButton: {
+    background: 'none',
+    border: 'none',
+    fontSize: '2rem',
+    cursor: 'pointer',
+    color: '#666',
+    padding: '0',
+    width: '40px',
+    height: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '4px',
+    transition: 'background-color 0.2s',
+    lineHeight: '1',
+  },
+  content: {
+    padding: '1.5rem',
+  },
+  photoSection: {
+    marginBottom: '2rem',
+    textAlign: 'center',
+  },
+  photo: {
+    maxWidth: '100%',
+    maxHeight: '400px',
+    borderRadius: '8px',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+  },
+  section: {
+    marginBottom: '2rem',
+    paddingBottom: '1.5rem',
+    borderBottom: '1px solid #f0f0f0',
+  },
+  sectionTitle: {
+    fontSize: '1.25rem',
+    marginBottom: '1rem',
+    color: '#007bff',
+    fontWeight: '600',
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '1rem',
+  },
+  field: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.25rem',
+  },
+  description: {
+    lineHeight: '1.6',
+    color: '#555',
+    margin: 0,
+  },
+  tags: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0.5rem',
+  },
+  tag: {
+    backgroundColor: '#e9ecef',
+    padding: '0.25rem 0.75rem',
+    borderRadius: '12px',
+    fontSize: '0.875rem',
+    color: '#495057',
+  },
+  hoursList: {
+    listStyle: 'none',
+    padding: 0,
+    margin: 0,
+  },
+  link: {
+    color: '#007bff',
+    textDecoration: 'none',
+    wordBreak: 'break-all',
+  },
+  monospace: {
+    fontFamily: 'monospace',
+    fontSize: '0.875rem',
+    backgroundColor: '#f8f9fa',
+    padding: '0.25rem 0.5rem',
+    borderRadius: '4px',
   },
 };
 

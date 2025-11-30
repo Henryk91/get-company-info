@@ -72,10 +72,12 @@ def search_places(
         
         # Optionally fetch place details (limited by max_details)
         if search_request.max_details and search_request.max_details > 0:
-            logger.info(f"Fetching place details for up to {search_request.max_details} places")
+            logger.info(f"Fetching place details for up to {search_request.max_details} places (limited by max_details parameter)")
             fetch_place_details(db, search_query.id, search_request.max_details)
             db.refresh(search_query)
-            logger.info(f"Place details fetch completed")
+            logger.info(f"Place details fetch completed for search query ID {search_query.id}")
+        else:
+            logger.info(f"max_details not provided or set to 0, skipping place details fetch")
         
         return search_query
     
@@ -169,7 +171,16 @@ def refresh_places(
             logger.info(f"Saved {len(places_data)} new places to database")
         
         if refresh_request.refresh_details:
-            max_details = refresh_request.max_details or len(search_query.places)
+            # Use max_details if provided, otherwise fetch details for all places without details
+            if refresh_request.max_details and refresh_request.max_details > 0:
+                max_details = refresh_request.max_details
+            else:
+                # Count places without details
+                places_without_details = db.query(Place).filter(
+                    Place.search_query_id == search_query.id,
+                    Place.has_details == False
+                ).count()
+                max_details = places_without_details
             logger.info(f"Refreshing place details for up to {max_details} places")
             fetch_place_details(db, search_query.id, max_details)
         
@@ -205,13 +216,21 @@ def get_places(
 def fetch_place_details(db: Session, search_query_id: int, max_details: int):
     """
     Fetch place details for places that don't have details yet
+    Limited by max_details parameter to control API usage
     """
+    # Count total places without details
+    total_without_details = db.query(Place).filter(
+        Place.search_query_id == search_query_id,
+        Place.has_details == False
+    ).count()
+    
+    # Fetch only up to max_details places
     places = db.query(Place).filter(
         Place.search_query_id == search_query_id,
         Place.has_details == False
     ).limit(max_details).all()
     
-    logger.info(f"Fetching details for {len(places)} places (query ID: {search_query_id})")
+    logger.info(f"Fetching details for {len(places)} places (max_details={max_details}, total without details={total_without_details}, query ID: {search_query_id})")
     success_count = 0
     error_count = 0
     

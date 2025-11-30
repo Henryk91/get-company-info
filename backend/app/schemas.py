@@ -69,6 +69,9 @@ class PlaceBase(BaseModel):
     international_phone_number: Optional[str] = None
     opening_hours: Optional[str] = None
     price_level: Optional[int] = None
+    description: Optional[str] = None
+    photo_reference: Optional[str] = None
+    photo_url: Optional[str] = None
     has_details: bool = False
 
 class PlaceCreate(PlaceBase):
