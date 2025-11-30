@@ -16,7 +16,10 @@ from ..google_places import (
     format_place_data,
     format_place_details
 )
+from ..logging_config import get_logger
 import json
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/places", tags=["places"])
 
@@ -33,6 +36,8 @@ def search_places(
     city = search_request.city.lower().strip()
     category = search_request.category.lower().strip()
     
+    logger.info(f"Search request from user {current_user.username} (ID: {current_user.id}): city='{city}', category='{category}', max_details={search_request.max_details}")
+    
     # Check if search query already exists
     existing_query = db.query(SearchQuery).filter(
         SearchQuery.city == city,
@@ -40,10 +45,11 @@ def search_places(
     ).first()
     
     if existing_query:
-        # Return existing data
+        logger.info(f"Returning cached search query (ID: {existing_query.id}) with {len(existing_query.places)} places")
         return existing_query
     
     # Create new search query
+    logger.info(f"Creating new search query for city='{city}', category='{category}'")
     search_query = SearchQuery(city=city, category=category)
     db.add(search_query)
     db.commit()
@@ -51,7 +57,9 @@ def search_places(
     
     # Fetch places from Google Places API
     try:
+        logger.info(f"Fetching places from Google Places API for city='{city}', category='{category}'")
         places_data = search_places_by_category(city, category)
+        logger.info(f"Received {len(places_data)} places from Google Places API")
         
         for place_data in places_data:
             place_info = format_place_data(place_data, category, city)
@@ -60,15 +68,19 @@ def search_places(
         
         db.commit()
         db.refresh(search_query)
+        logger.info(f"Saved {len(search_query.places)} places to database (SearchQuery ID: {search_query.id})")
         
         # Optionally fetch place details (limited by max_details)
         if search_request.max_details and search_request.max_details > 0:
+            logger.info(f"Fetching place details for up to {search_request.max_details} places")
             fetch_place_details(db, search_query.id, search_request.max_details)
             db.refresh(search_query)
+            logger.info(f"Place details fetch completed")
         
         return search_query
     
     except Exception as e:
+        logger.error(f"Error fetching places for city='{city}', category='{category}': {str(e)}", exc_info=True)
         db.delete(search_query)
         db.commit()
         raise HTTPException(
@@ -82,7 +94,9 @@ def get_all_queries(
     db: Session = Depends(get_db)
 ):
     """Get all search queries"""
+    logger.debug(f"User {current_user.username} requested all search queries")
     queries = db.query(SearchQuery).all()
+    logger.info(f"Returning {len(queries)} search queries")
     return queries
 
 @router.get("/queries/{query_id}", response_model=SearchQueryResponse)
@@ -92,12 +106,15 @@ def get_query(
     db: Session = Depends(get_db)
 ):
     """Get a specific search query with places"""
+    logger.debug(f"User {current_user.username} requested search query ID: {query_id}")
     query = db.query(SearchQuery).filter(SearchQuery.id == query_id).first()
     if not query:
+        logger.warning(f"Search query ID {query_id} not found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Search query not found"
         )
+    logger.info(f"Returning search query ID {query_id} with {len(query.places)} places")
     return query
 
 @router.post("/refresh", response_model=SearchQueryResponse)
@@ -109,11 +126,19 @@ def refresh_places(
     """
     Refresh places data by re-calling Google Places API
     """
+    logger.info(
+        f"Refresh request from user {current_user.username} for search query ID {refresh_request.search_query_id}: "
+        f"refresh_text_search={refresh_request.refresh_text_search}, "
+        f"refresh_details={refresh_request.refresh_details}, "
+        f"max_details={refresh_request.max_details}"
+    )
+    
     search_query = db.query(SearchQuery).filter(
         SearchQuery.id == refresh_request.search_query_id
     ).first()
     
     if not search_query:
+        logger.warning(f"Search query ID {refresh_request.search_query_id} not found for refresh")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Search query not found"
@@ -121,13 +146,19 @@ def refresh_places(
     
     try:
         if refresh_request.refresh_text_search:
+            logger.info(f"Refreshing text search for query ID {search_query.id} (city='{search_query.city}', category='{search_query.category}')")
             # Delete existing places
+            deleted_count = db.query(Place).filter(
+                Place.search_query_id == search_query.id
+            ).count()
             db.query(Place).filter(
                 Place.search_query_id == search_query.id
             ).delete()
+            logger.info(f"Deleted {deleted_count} existing places")
             
             # Fetch new places
             places_data = search_places_by_category(search_query.city, search_query.category)
+            logger.info(f"Fetched {len(places_data)} places from Google Places API")
             
             for place_data in places_data:
                 place_info = format_place_data(place_data, search_query.category, search_query.city)
@@ -135,15 +166,19 @@ def refresh_places(
                 db.add(place)
             
             db.commit()
+            logger.info(f"Saved {len(places_data)} new places to database")
         
         if refresh_request.refresh_details:
             max_details = refresh_request.max_details or len(search_query.places)
+            logger.info(f"Refreshing place details for up to {max_details} places")
             fetch_place_details(db, search_query.id, max_details)
         
         db.refresh(search_query)
+        logger.info(f"Refresh completed for search query ID {search_query.id}")
         return search_query
     
     except Exception as e:
+        logger.error(f"Error refreshing places for query ID {refresh_request.search_query_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error refreshing places: {str(e)}"
@@ -156,12 +191,15 @@ def get_places(
     db: Session = Depends(get_db)
 ):
     """Get all places for a search query"""
+    logger.debug(f"User {current_user.username} requested places for query ID: {query_id}")
     search_query = db.query(SearchQuery).filter(SearchQuery.id == query_id).first()
     if not search_query:
+        logger.warning(f"Search query ID {query_id} not found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Search query not found"
         )
+    logger.info(f"Returning {len(search_query.places)} places for query ID {query_id}")
     return search_query.places
 
 def fetch_place_details(db: Session, search_query_id: int, max_details: int):
@@ -173,6 +211,10 @@ def fetch_place_details(db: Session, search_query_id: int, max_details: int):
         Place.has_details == False
     ).limit(max_details).all()
     
+    logger.info(f"Fetching details for {len(places)} places (query ID: {search_query_id})")
+    success_count = 0
+    error_count = 0
+    
     for place in places:
         try:
             details_data = get_place_details(place.place_id)
@@ -183,10 +225,16 @@ def fetch_place_details(db: Session, search_query_id: int, max_details: int):
                     if value is not None:
                         setattr(place, key, value)
                 place.has_details = True
+                success_count += 1
+                logger.debug(f"Successfully fetched details for place: {place.name} (ID: {place.place_id})")
+            else:
+                logger.warning(f"Google Places API returned status '{details_data.get('status')}' for place ID: {place.place_id}")
+                error_count += 1
         except Exception as e:
-            # Log error but continue with other places
-            print(f"Error fetching details for place {place.place_id}: {str(e)}")
+            error_count += 1
+            logger.error(f"Error fetching details for place {place.place_id} ({place.name}): {str(e)}", exc_info=True)
             continue
     
     db.commit()
+    logger.info(f"Place details fetch completed: {success_count} successful, {error_count} errors")
 

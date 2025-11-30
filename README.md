@@ -118,6 +118,7 @@ get-company-info/
 - `DB_TYPE`: Database type - `postgres` or `sqlite` (optional - auto-detected from DATABASE_URL)
 - `SECRET_KEY`: JWT secret key (minimum 32 characters)
 - `GOOGLE_PLACES_API_KEY`: Your Google Places API key
+- `LOG_LEVEL`: Logging level - `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` (default: `INFO`)
 
 ### Database Configuration
 
@@ -312,6 +313,44 @@ cd frontend
 npm test
 ```
 
+## Logging
+
+The application includes comprehensive logging functionality:
+
+### Log Files
+
+- **`logs/app.log`**: General application logs (all levels)
+- **`logs/errors.log`**: Error logs only (ERROR and above)
+
+Logs are automatically rotated when they reach 10MB, keeping the last 5 backups.
+
+### Log Levels
+
+Set the log level using the `LOG_LEVEL` environment variable:
+- `DEBUG`: Detailed information for debugging
+- `INFO`: General informational messages (default)
+- `WARNING`: Warning messages
+- `ERROR`: Error messages
+- `CRITICAL`: Critical errors only
+
+### What's Logged
+
+- **Request/Response**: All HTTP requests with method, path, status, and response time
+- **Authentication**: User registration, login attempts, and authentication failures
+- **Database Operations**: Search queries, place fetching, and data refresh operations
+- **Google Places API**: API calls, responses, and errors
+- **Errors**: Full exception traces with stack information
+
+### Example Log Output
+
+```
+2024-01-15 10:30:45 - app.main - INFO - Starting application...
+2024-01-15 10:30:45 - app.main - INFO - Database tables created/verified successfully
+2024-01-15 10:30:46 - app.routers.auth - INFO - Login attempt for username: john_doe
+2024-01-15 10:30:46 - app.routers.auth - INFO - User logged in successfully: john_doe (ID: 1)
+2024-01-15 10:30:47 - app.routers.places - INFO - Search request from user john_doe: city='new york', category='restaurants'
+```
+
 ## Security Considerations
 
 - **JWT Secret Key**: Use a strong, random secret key in production
@@ -319,6 +358,7 @@ npm test
 - **CORS**: Configure CORS origins appropriately for production
 - **Database**: Use strong passwords and secure connections
 - **HTTPS**: Use HTTPS in production environments
+- **Logs**: Be careful not to log sensitive information (passwords, tokens, etc.)
 
 ## License
 

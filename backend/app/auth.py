@@ -7,14 +7,20 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User
+from .logging_config import get_logger
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = get_logger(__name__)
+
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+if SECRET_KEY == "your-secret-key-change-in-production":
+    logger.warning("Using default SECRET_KEY - this should be changed in production!")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
@@ -41,9 +47,12 @@ def get_user_by_username(db: Session, username: str) -> Optional[User]:
 def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
     user = get_user_by_username(db, username)
     if not user:
+        logger.debug(f"Authentication failed: user '{username}' not found")
         return None
     if not verify_password(password, user.hashed_password):
+        logger.debug(f"Authentication failed: invalid password for user '{username}'")
         return None
+    logger.debug(f"Authentication successful for user '{username}'")
     return user
 
 async def get_current_user(
@@ -59,11 +68,14 @@ async def get_current_user(
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
+            logger.warning("JWT token missing 'sub' claim")
             raise credentials_exception
-    except JWTError:
+    except JWTError as e:
+        logger.warning(f"JWT validation failed: {str(e)}")
         raise credentials_exception
     user = get_user_by_username(db, username=username)
     if user is None:
+        logger.warning(f"User '{username}' from JWT token not found in database")
         raise credentials_exception
     return user
 
