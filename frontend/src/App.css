@@ -2,3 +2,30 @@
   min-height: 100vh;
 }
 
+/* Sidebar toggle button hover */
+button[style*="sidebarToggle"]:hover {
+  background-color: rgba(255,255,255,0.3) !important;
+}
+
+/* Pagination button styles */
+button[style*="paginationButton"]:hover:not(:disabled) {
+  background-color: #f8f9fa !important;
+  border-color: #007bff !important;
+}
+
+button[style*="paginationButton"]:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+@media (max-width: 1024px) {
+  .main-layout {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .main-layout > div:first-child {
+    position: static !important;
+    max-height: none !important;
+  }
+}
+

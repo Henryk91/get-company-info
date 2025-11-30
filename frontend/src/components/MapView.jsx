@@ -62,9 +62,12 @@ const styles = {
   map: {
     height: '400px',
     width: '100%',
+    maxWidth: '100%',
     borderRadius: '8px',
     marginBottom: '2rem',
     zIndex: 0,
+    overflow: 'hidden',
+    boxSizing: 'border-box',
   },
 };
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
   const [refreshTextSearch, setRefreshTextSearch] = useState(false);
@@ -6,6 +6,8 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
   const [maxDetails, setMaxDetails] = useState('');
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const handleRefresh = () => {
     onRefresh({
@@ -124,6 +126,25 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
     document.body.removeChild(link);
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil((places?.length || 0) / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedPlaces = useMemo(() => {
+    if (!places) return [];
+    return places.slice(startIndex, endIndex);
+  }, [places, startIndex, endIndex]);
+
+  // Reset to page 1 when items per page changes
+  const handleItemsPerPageChange = (newValue) => {
+    setItemsPerPage(newValue);
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(Math.max(1, Math.min(newPage, totalPages)));
+  };
+
   if (!places || places.length === 0) {
     return <div style={styles.empty}>No places found</div>;
   }
@@ -150,6 +171,25 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
         }
         .places-table tbody tr:hover {
           background-color: #e9ecef;
+        }
+        .places-table .line-number-cell {
+          text-align: center;
+          background-color: #f8f9fa;
+          position: sticky;
+          left: 0;
+          z-index: 4;
+          font-weight: 500;
+        }
+        .places-table tbody tr:hover .line-number-cell {
+          background-color: #e9ecef;
+        }
+        .places-table .line-number-header {
+          width: 50px;
+          text-align: center;
+          position: sticky;
+          left: 0;
+          background-color: #f8f9fa;
+          z-index: 5;
         }
       `}</style>
       <div style={styles.actions}>
@@ -200,6 +240,7 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
         <table className="places-table" style={styles.table}>
           <thead>
             <tr>
+              <th className="line-number-header">#</th>
               <th>Photo</th>
               <th>Place ID</th>
               <th>Name</th>
@@ -225,7 +266,8 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
             </tr>
           </thead>
           <tbody>
-            {places.map((place) => {
+            {paginatedPlaces.map((place, index) => {
+              const lineNumber = startIndex + index + 1;
               // Parse opening hours if available
               let openingHoursDisplay = '-';
               if (place.opening_hours) {
@@ -281,6 +323,7 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
                   }}
                   style={{ cursor: 'pointer' }}
                 >
+                  <td className="line-number-cell">{lineNumber}</td>
                   <td>
                     {place.photo_url ? (
                       <img 
@@ -336,6 +379,65 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }) => {
             })}
           </tbody>
         </table>
+      </div>
+      
+      {/* Pagination */}
+      <div style={styles.paginationContainer}>
+        <div style={styles.paginationInfo}>
+          <span>
+            Showing {startIndex + 1} to {Math.min(endIndex, places.length)} of {places.length} places
+          </span>
+          <div style={styles.itemsPerPageSelector}>
+            <label htmlFor="itemsPerPage" style={styles.itemsPerPageLabel}>
+              Items per page:
+            </label>
+            <select
+              id="itemsPerPage"
+              value={itemsPerPage}
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              style={styles.itemsPerPageSelect}
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={places.length}>All</option>
+            </select>
+          </div>
+        </div>
+        <div style={styles.paginationControls}>
+          <button
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage === 1}
+            style={currentPage === 1 ? styles.paginationButtonDisabled : styles.paginationButton}
+          >
+            First
+          </button>
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            style={currentPage === 1 ? styles.paginationButtonDisabled : styles.paginationButton}
+          >
+            Previous
+          </button>
+          <span style={styles.paginationPageInfo}>
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            style={currentPage === totalPages ? styles.paginationButtonDisabled : styles.paginationButton}
+          >
+            Next
+          </button>
+          <button
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            style={currentPage === totalPages ? styles.paginationButtonDisabled : styles.paginationButton}
+          >
+            Last
+          </button>
+        </div>
       </div>
       
       {/* Place Details Modal */}
@@ -635,11 +737,77 @@ const styles = {
     backgroundColor: 'white',
     borderRadius: '8px',
     boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
   },
   table: {
     width: '100%',
     minWidth: '2000px', // Ensure table doesn't compress too much
     borderCollapse: 'collapse',
+  },
+  paginationContainer: {
+    marginTop: '1rem',
+    padding: '1rem',
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '1rem',
+  },
+  paginationInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1.5rem',
+    flexWrap: 'wrap',
+  },
+  itemsPerPageSelector: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  itemsPerPageLabel: {
+    fontSize: '0.875rem',
+    color: '#666',
+  },
+  itemsPerPageSelect: {
+    padding: '0.5rem',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    fontSize: '0.875rem',
+    cursor: 'pointer',
+  },
+  paginationControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    flexWrap: 'wrap',
+  },
+  paginationButton: {
+    padding: '0.5rem 1rem',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    backgroundColor: 'white',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+    transition: 'all 0.2s',
+  },
+  paginationButtonDisabled: {
+    padding: '0.5rem 1rem',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    backgroundColor: '#f8f9fa',
+    cursor: 'not-allowed',
+    fontSize: '0.875rem',
+    opacity: 0.5,
+  },
+  paginationPageInfo: {
+    padding: '0 0.5rem',
+    fontSize: '0.875rem',
+    color: '#666',
   },
   empty: {
     textAlign: 'center',
