@@ -29,7 +29,38 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    """
+    Hash a password using bcrypt.
+    Raises ValueError if password is longer than 72 bytes.
+    """
+    # Check byte length before hashing (bcrypt limit is 72 bytes)
+    password_bytes = password.encode('utf-8')
+    password_byte_len = len(password_bytes)
+    
+    if password_byte_len > 72:
+        raise ValueError(f"Password cannot be longer than 72 bytes (got {password_byte_len} bytes)")
+    
+    # Hash the password
+    # Note: Some bcrypt/passlib versions have a bug where they throw false positive
+    # 72-byte errors even for valid passwords. We've already validated the length.
+    try:
+        return pwd_context.hash(password)
+    except ValueError as e:
+        error_msg = str(e).lower()
+        # Check if this is a false positive 72-byte error from bcrypt
+        if ("72 bytes" in error_msg or "longer than 72" in error_msg or "truncate" in error_msg) and password_byte_len <= 72:
+            # This is a known false positive bug in some bcrypt/passlib versions
+            # Since we've validated the password is <= 72 bytes, we can safely proceed
+            # by using bcrypt directly instead of through passlib
+            logger.warning(f"Bcrypt false positive error detected for {password_byte_len} byte password. Using direct bcrypt hash.")
+            import bcrypt
+            # Hash directly with bcrypt (password_bytes is already validated to be <= 72)
+            salt = bcrypt.gensalt()
+            hashed = bcrypt.hashpw(password_bytes, salt)
+            # Return as string (passlib format)
+            return hashed.decode('utf-8')
+        # Re-raise if it's a different error
+        raise
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()

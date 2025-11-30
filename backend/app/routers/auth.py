@@ -38,7 +38,54 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     
     # Create new user
     try:
-        hashed_password = get_password_hash(user_data.password)
+        # Validate password length in bytes (bcrypt limit)
+        password_bytes = user_data.password.encode('utf-8')
+        if len(password_bytes) > 72:
+            logger.warning(f"Registration failed: Password too long ({len(password_bytes)} bytes)")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password cannot be longer than 72 characters"
+            )
+        
+        # Hash password with additional error handling
+        password_bytes = len(user_data.password.encode('utf-8'))
+        password_len = len(user_data.password)
+        logger.debug(f"Password validation: {password_len} chars, {password_bytes} bytes")
+        
+        try:
+            hashed_password = get_password_hash(user_data.password)
+        except ValueError as hash_error:
+            # Catch validation errors from password hashing (including bcrypt 72-byte limit)
+            original_error = str(hash_error)
+            logger.error(f"Password hashing ValueError for user {user_data.username}: {original_error}, Password: {password_len} chars, {password_bytes} bytes")
+            
+            # Only format as 72-byte error if password is ACTUALLY too long (> 72 bytes)
+            # This prevents false positives from other errors that might mention "72"
+            if password_bytes > 72:
+                error_msg = f"Password cannot be longer than 72 characters. Your password is {password_len} characters ({password_bytes} bytes when encoded). Some special characters may use multiple bytes."
+            else:
+                # Password is NOT too long, so use the original error message
+                error_msg = original_error
+                logger.warning(f"Password is only {password_bytes} bytes but got ValueError: {original_error}")
+            
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
+        except Exception as hash_error:
+            # Catch any other unexpected errors from password hashing
+            error_msg = str(hash_error)
+            logger.error(f"Unexpected password hashing error for user {user_data.username}: {error_msg}, Password bytes: {password_bytes}", exc_info=True)
+            db.rollback()
+            # Only show 72-byte error if password is actually too long
+            if password_bytes > 72:
+                password_len = len(user_data.password)
+                error_msg = f"Password cannot be longer than 72 characters. Your password is {password_len} characters ({password_bytes} bytes when encoded)."
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
         db_user = User(
             username=user_data.username,
             email=user_data.email,
@@ -49,6 +96,8 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
         db.refresh(db_user)
         logger.info(f"User registered successfully: {user_data.username} (ID: {db_user.id})")
         return db_user
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error registering user {user_data.username}: {str(e)}", exc_info=True)
         db.rollback()

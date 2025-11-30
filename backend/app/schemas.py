@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -7,6 +7,30 @@ class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if not v:
+            raise ValueError('Password cannot be empty')
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        # Bcrypt has a 72-byte limit. We'll use 72 characters as a safe limit
+        # (assuming ASCII/UTF-8 single-byte characters)
+        if len(v.encode('utf-8')) > 72:
+            raise ValueError('Password cannot be longer than 72 characters')
+        return v
+    
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Username cannot be empty')
+        if len(v) < 3:
+            raise ValueError('Username must be at least 3 characters long')
+        if len(v) > 50:
+            raise ValueError('Username cannot be longer than 50 characters')
+        return v.strip()
 
 class UserResponse(BaseModel):
     id: int

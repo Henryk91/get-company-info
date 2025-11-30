@@ -11,6 +11,31 @@ const Login = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const formatError = (error) => {
+    if (!error) return 'An error occurred';
+    
+    // Handle validation errors (422) - detail is an array
+    if (Array.isArray(error.detail)) {
+      return error.detail.map(err => {
+        // Extract field name from location (e.g., ['body', 'password'] -> 'password')
+        const field = err.loc && err.loc.length > 1 
+          ? err.loc[err.loc.length - 1] 
+          : 'field';
+        // Capitalize first letter and replace underscores
+        const fieldName = field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ' ');
+        return `${fieldName}: ${err.msg}`;
+      }).join('. ');
+    }
+    
+    // Handle string error messages
+    if (typeof error.detail === 'string') {
+      return error.detail;
+    }
+    
+    // Fallback
+    return 'An error occurred';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -35,7 +60,21 @@ const Login = ({ onLogin }) => {
         onLogin();
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'An error occurred');
+      console.error('Registration/Login error:', err);
+      let errorMessage = 'An error occurred';
+      
+      try {
+        if (err.response?.data) {
+          errorMessage = formatError(err.response.data);
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+      } catch (formatErr) {
+        console.error('Error formatting error message:', formatErr);
+        errorMessage = 'An error occurred. Please try again.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -72,7 +111,11 @@ const Login = ({ onLogin }) => {
             required
             style={styles.input}
           />
-          {error && <div style={styles.error}>{error}</div>}
+          {error && (
+            <div style={styles.error}>
+              <strong>Error:</strong> {error}
+            </div>
+          )}
           <button type="submit" disabled={loading} style={styles.button}>
             {loading ? 'Loading...' : isLogin ? 'Login' : 'Register'}
           </button>
@@ -141,9 +184,14 @@ const styles = {
     width: '100%',
   },
   error: {
-    color: 'red',
+    color: '#721c24',
+    backgroundColor: '#f8d7da',
+    border: '1px solid #f5c6cb',
+    padding: '0.75rem',
+    borderRadius: '4px',
     fontSize: '0.875rem',
-    marginTop: '-0.5rem',
+    marginTop: '0.5rem',
+    marginBottom: '0.5rem',
   },
 };
 
