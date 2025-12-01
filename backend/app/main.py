@@ -92,6 +92,8 @@ if not os.path.exists(frontend_dist):
 
 if os.path.exists(frontend_dist):
     logger.info(f"Frontend found at: {frontend_dist}")
+
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
     # Mount static assets
     assets_path = os.path.join(frontend_dist, "assets")
     if os.path.exists(assets_path):

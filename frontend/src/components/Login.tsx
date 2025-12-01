@@ -110,24 +110,24 @@ const Login = ({ onLogin }: LoginProps) => {
       <div style={styles.card}>
         <h2 style={styles.title}>{isLogin ? 'Login' : 'Register'}</h2>
         <form onSubmit={handleSubmit} style={styles.form}>
+          {!isLogin && (
           <input
-            type="email"
-            placeholder="Email"
+            type="text"
+            placeholder="Username"
             value={formData.username}
             onChange={handleInputChange('username')}
             required
             style={styles.input}
           />
-          {!isLogin && (
-            <input
-              type="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={handleInputChange('email')}
-              required
-              style={styles.input}
-            />
           )}
+          <input
+            type="email"
+            placeholder="Email"
+            value={isLogin? formData.username: formData.email}
+            onChange={handleInputChange(isLogin? 'username' : 'email')}
+            required
+            style={styles.input}
+          />
           <input
             type="password"
             placeholder="Password"
