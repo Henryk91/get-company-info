@@ -9,7 +9,7 @@ interface SearchFormProps {
 const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
   const [city, setCity] = useState<string>('');
   const [category, setCategory] = useState<string>('');
-  const [maxDetails, setMaxDetails] = useState<string>('');
+  const [maxDetails, setMaxDetails] = useState<string>('20');
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
