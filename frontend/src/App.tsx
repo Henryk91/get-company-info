@@ -150,7 +150,7 @@ function App() {
         <div style={styles.container}>
           {/* Search Form at Top */}
           <div style={styles.searchSection}>
-            <SearchForm onSearch={handleSearch} loading={loading} />
+            <SearchForm currentQuery={currentQuery} onSearch={handleSearch} loading={loading} />
             {error && <div style={styles.error}>{error}</div>}
           </div>
           {/* Current Search Info */}
@@ -172,6 +172,7 @@ function App() {
             <>
               <MapView places={places} />
               <PlacesTable
+                currentQuery={currentQuery}
                 places={places}
                 onRefresh={handleRefresh}
                 queryId={currentQuery?.id}

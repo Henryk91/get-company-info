@@ -31,6 +31,16 @@ else:
 
 logger.info("Google Places API module initialized")
 
+def _extract_address_component(components: list, desired_types: list) -> Optional[str]:
+    """
+    Helper to extract the first matching address component value for the given types.
+    """
+    for component in components or []:
+        comp_types = component.get("types", [])
+        if any(t in comp_types for t in desired_types):
+            return component.get("long_name") or component.get("short_name")
+    return None
+
 def is_google_access_allowed(user_email: str) -> bool:
     """
     Return True if the given user_email is allowed to call Google APIs.
@@ -77,7 +87,7 @@ def get_place_details(place_id: str) -> Dict:
     url = f"{GOOGLE_PLACES_API_BASE_URL}/details/json"
     params = {
         "place_id": place_id,
-        "fields": "name,formatted_address,geometry,rating,user_ratings_total,formatted_phone_number,international_phone_number,website,business_status,types,opening_hours,price_level,editorial_summary,photos",
+        "fields": "name,formatted_address,address_components,geometry,rating,user_ratings_total,formatted_phone_number,international_phone_number,website,business_status,types,opening_hours,price_level,editorial_summary,photos",
         "key": GOOGLE_PLACES_API_KEY
     }
     
@@ -136,12 +146,18 @@ def format_place_data(place_result: Dict, category: str, city: str) -> Dict:
         "address": place_result.get("formatted_address"),
         "city": city,
         "category": category,
+        "service_type": category,
         "latitude": location.get("lat"),
         "longitude": location.get("lng"),
         "rating": place_result.get("rating"),
         "user_ratings_total": place_result.get("user_ratings_total"),
         "business_status": place_result.get("business_status"),
         "types": json.dumps(place_result.get("types", [])),
+        "postal_code": place_result.get("postal_code"),  # usually unavailable in text search
+        "province": place_result.get("province"),  # usually unavailable in text search
+        "suburb": place_result.get("suburb"),  # usually unavailable in text search
+        "email": place_result.get("email"),
+        "owner": place_result.get("owner"),
         "has_details": False
     }
 
@@ -177,6 +193,15 @@ def format_place_details(place_details: Dict) -> Dict:
     if opening_hours.get("open_now") is not None:
         opening_hours_data["open_now"] = opening_hours.get("open_now")
     
+    address_components = result.get("address_components", [])
+    postal_code = _extract_address_component(address_components, ["postal_code"])
+    province = _extract_address_component(address_components, ["administrative_area_level_1"])
+    suburb = _extract_address_component(address_components, ["sublocality", "sublocality_level_1", "neighborhood"])
+    service_type = None
+    types = result.get("types", [])
+    if types:
+        service_type = types[0]
+    
     return {
         "formatted_address": result.get("formatted_address"),
         "latitude": location.get("lat"),
@@ -193,5 +218,11 @@ def format_place_details(place_details: Dict) -> Dict:
         "description": description,
         "photo_reference": photo_reference,
         "photo_url": photo_url,
+        "email": result.get("email"),
+        "owner": result.get("owner"),
+        "postal_code": postal_code,
+        "province": province,
+        "suburb": suburb,
+        "service_type": service_type,
         "has_details": True
     }

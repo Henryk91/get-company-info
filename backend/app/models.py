@@ -50,10 +50,15 @@ class Place(Base):
     description = Column(Text)  # Place description/review summary
     photo_reference = Column(String)  # Photo reference from Google Places
     photo_url = Column(String)  # Full photo URL
+    email = Column(String)
+    owner = Column(String)
+    postal_code = Column(String)
+    province = Column(String)
+    suburb = Column(String)
+    service_type = Column(String)
     has_details = Column(Boolean, default=False)  # Whether Place Details API was called
     search_query_id = Column(Integer, ForeignKey("search_queries.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     search_query = relationship("SearchQuery", back_populates="places")
-

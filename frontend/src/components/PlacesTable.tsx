@@ -1,7 +1,8 @@
-import { useState, useMemo, ChangeEvent, MouseEvent, FormEvent } from 'react';
-import { Place, RefreshRequest } from '../services/api';
+import { useState, useMemo, ChangeEvent, MouseEvent } from 'react';
+import { Place, RefreshRequest, SearchQuery } from '../services/api';
 
 interface PlacesTableProps {
+  currentQuery: SearchQuery | null;
   places: Place[];
   onRefresh: (data: RefreshRequest) => void;
   queryId?: number;
@@ -14,7 +15,7 @@ interface OpeningHoursData {
   periods?: unknown[];
 }
 
-const PlacesTable = ({ places, onRefresh, queryId, loading }: PlacesTableProps) => {
+const PlacesTable = ({ currentQuery, places, onRefresh, queryId, loading }: PlacesTableProps) => {
   const [refreshTextSearch, setRefreshTextSearch] = useState<boolean>(false);
   const [refreshDetails, setRefreshDetails] = useState<boolean>(false);
   const [maxDetails, setMaxDetails] = useState<string>('');
@@ -168,19 +169,19 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }: PlacesTableProps) 
         place.name || '',
         place.name ? place.name.toLowerCase() : '',
         place.description || '',
-        '', //Email
+        place.email || '',
         place.international_phone_number || place.phone_number || '',
-        '', //owner
+        place.owner || '',
         place.category || '',
         types,
         place.photo_url || '',
         location,
         place.city || '',
-        '', //postalCode
-        '', // province
+        place.postal_code || '',
+        place.province || '',
         place.address || place.formatted_address || '',
-        '', //suburb
-        '', //serviceType
+        place.suburb || '',
+        place.service_type || '',
         galleryImages,
         dailyHours.mon.close,
         dailyHours.mon.closed,
@@ -222,13 +223,13 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }: PlacesTableProps) 
       headers.join(','),
       ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     ].join('\n');
-    console.log('csvContent',csvContent);
-    // return;
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `places_${new Date().toISOString().split('T')[0]}.csv`);
+    const queryName = currentQuery? `${currentQuery.city}_${currentQuery.category}_` : ''
+    link.setAttribute('download', `${queryName}places_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

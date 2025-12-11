@@ -72,6 +72,12 @@ class PlaceBase(BaseModel):
     description: Optional[str] = None
     photo_reference: Optional[str] = None
     photo_url: Optional[str] = None
+    email: Optional[str] = None
+    owner: Optional[str] = None
+    postal_code: Optional[str] = None
+    province: Optional[str] = None
+    suburb: Optional[str] = None
+    service_type: Optional[str] = None
     has_details: bool = False
 
 class PlaceCreate(PlaceBase):
@@ -114,4 +120,3 @@ class RefreshRequest(BaseModel):
     refresh_text_search: bool = False
     refresh_details: bool = False
     max_details: Optional[int] = None
-

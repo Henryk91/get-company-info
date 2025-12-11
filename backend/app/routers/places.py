@@ -32,6 +32,28 @@ def _ensure_google_access(current_user: User):
             detail="Google API access is restricted for this account"
         )
 
+def _upsert_place(db: Session, place_info: dict, search_query_id: int) -> Place:
+    """
+    Insert or update a place by place_id.
+    Preserves existing detail fields if we are overwriting with a text-search payload
+    that lacks detailed data.
+    """
+    place_id = place_info.get("place_id")
+    existing = db.query(Place).filter(Place.place_id == place_id).first()
+    if existing:
+        for key, value in place_info.items():
+            if value is not None:
+                setattr(existing, key, value)
+        existing.search_query_id = search_query_id
+        # If details were already fetched, keep them
+        if existing.has_details:
+            existing.has_details = True
+        db.add(existing)
+        return existing
+    place = Place(**place_info, search_query_id=search_query_id)
+    db.add(place)
+    return place
+
 @router.post("/search", response_model=SearchQueryResponse)
 def search_places(
     search_request: SearchRequest,
@@ -75,8 +97,7 @@ def search_places(
         
         for place_data in places_data:
             place_info = format_place_data(place_data, category, city)
-            place = Place(**place_info, search_query_id=search_query.id)
-            db.add(place)
+            _upsert_place(db, place_info, search_query.id)
         
         db.commit()
         db.refresh(search_query)
@@ -183,8 +204,7 @@ def refresh_places(
             
             for place_data in places_data:
                 place_info = format_place_data(place_data, search_query.category, search_query.city)
-                place = Place(**place_info, search_query_id=search_query.id)
-                db.add(place)
+                _upsert_place(db, place_info, search_query.id)
             
             db.commit()
             logger.info(f"Saved {len(places_data)} new places to database")

@@ -1,14 +1,15 @@
-import { useState, FormEvent, ChangeEvent } from 'react';
-import { SearchRequest } from '../services/api';
+import { useState, FormEvent, ChangeEvent, useEffect } from 'react';
+import { SearchRequest, SearchQuery } from '../services/api';
 
 interface SearchFormProps {
+  currentQuery: SearchQuery | null;
   onSearch: (data: SearchRequest) => void;
   loading: boolean;
 }
 
-const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
-  const [city, setCity] = useState<string>('');
-  const [category, setCategory] = useState<string>('');
+const SearchForm = ({ currentQuery, onSearch, loading }: SearchFormProps) => {
+  const [city, setCity] = useState<string>(currentQuery?.city ?? '');
+  const [category, setCategory] = useState<string>(currentQuery?.category ?? '');
   const [maxDetails, setMaxDetails] = useState<string>('20');
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -19,6 +20,11 @@ const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
       max_details: maxDetails ? parseInt(maxDetails) : null,
     });
   };
+
+  useEffect(() => {
+    if(currentQuery?.city && currentQuery?.city !== city) setCity(currentQuery?.city)
+    if(currentQuery?.category && currentQuery?.category !== category) setCategory(currentQuery?.category)
+  },[currentQuery?.city])
 
   return (
     <>

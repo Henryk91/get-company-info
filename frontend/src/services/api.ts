@@ -53,6 +53,12 @@ export interface Place {
   description?: string;
   photo_reference?: string;
   photo_url?: string;
+  email?: string;
+  owner?: string;
+  postal_code?: string;
+  province?: string;
+  suburb?: string;
+  service_type?: string;
   has_details: boolean;
   search_query_id: number;
   created_at: string;
@@ -138,4 +144,3 @@ export const placesAPI = {
 };
 
 export default api;
-
