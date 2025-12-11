@@ -37,44 +37,106 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }: PlacesTableProps) 
     if (!places || places.length === 0) return;
 
     const headers = [
-      'Place ID',
-      'Name',
-      'City',
-      'Category',
-      'Address',
-      'Formatted Address',
-      'Description',
-      'Types',
+      'BusinessName',
+      'BusinessName_LowerCase',
+      'description',
+      'Email',
+      'phone',
+      'owner',
+      'primary_category',
+      'extra_categories',
+      'profile_Picture',
+      'location',
+      'cityTown',
+      'postalCode',
+      'province',
+      'streetAddress',
+      'suburb',
+      'serviceType',
+      'gallary_images',
+      'mon_close',
+      'mon_closed',
+      'mon_open',
+      'tue_close',
+      'tue_closed',
+      'tue_open',
+      'wed_close',
+      'wed_closed',
+      'wed_open',
+      'thu_close',
+      'thu_closed',
+      'thu_open',
+      'fri_close',
+      'fri_closed',
+      'fri_open',
+      'sat_close',
+      'sat_closed',
+      'sat_open',
+      'sun_close',
+      'sun_closed',
+      'sun_open',
+      'unique id',
       'Rating',
       'Total Ratings',
       'Price Level',
-      'Opening Hours',
       'Phone',
-      'International Phone',
       'Website',
       'Business Status',
-      'Latitude',
-      'Longitude',
       'Photo Reference',
       'Photo URL',
       'Has Details',
       'Created At',
       'Updated At',
     ];
-
+    
     const rows = places.map(place => {
-      // Format opening hours for CSV
-      let openingHours = '';
+      const dayKeyMap: Record<number, 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'> = {
+        0: 'sun',
+        1: 'mon',
+        2: 'tue',
+        3: 'wed',
+        4: 'thu',
+        5: 'fri',
+        6: 'sat',
+      };
+      const dailyHours: Record<string, { open: string; close: string; closed: string }> = {
+        mon: { open: '', close: '', closed: '' },
+        tue: { open: '', close: '', closed: '' },
+        wed: { open: '', close: '', closed: '' },
+        thu: { open: '', close: '', closed: '' },
+        fri: { open: '', close: '', closed: '' },
+        sat: { open: '', close: '', closed: '' },
+        sun: { open: '', close: '', closed: '' },
+      };
+      const formatTime = (time?: string) => {
+        if (!time) return '';
+        const normalized = String(time);
+        return normalized.length === 4
+          ? `${normalized.slice(0, 2)}:${normalized.slice(2)}`
+          : normalized;
+      };
       if (place.opening_hours) {
         try {
           const hours = JSON.parse(place.opening_hours);
-          if (hours.weekday_text && Array.isArray(hours.weekday_text)) {
-            openingHours = hours.weekday_text.join('; ');
-          } else if (hours.open_now !== undefined) {
-            openingHours = hours.open_now ? 'Open Now' : 'Closed Now';
+          if (hours.periods && Array.isArray(hours.periods)) {
+            hours.periods.forEach((period: any) => {
+              const openDay = period?.open?.day;
+              const dayKey = dayKeyMap[openDay as number];
+              if (!dayKey) return;
+              const openTime = formatTime(period?.open?.time);
+              const closeTime = formatTime(period?.close?.time);
+              if (openTime || closeTime) {
+                dailyHours[dayKey] = { open: openTime, close: closeTime, closed: 'false' };
+              }
+            });
+            Object.keys(dailyHours).forEach((day) => {
+              if (!dailyHours[day].open && !dailyHours[day].close) {
+                dailyHours[day].closed = 'true';
+              }
+            });
           }
         } catch (e) {
-          openingHours = place.opening_hours;
+          // If parsing fails, leave daily hours empty
         }
       }
       
@@ -97,26 +159,57 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }: PlacesTableProps) 
       const priceLevel = place.price_level !== null && place.price_level !== undefined 
         ? '$'.repeat(place.price_level) 
         : '';
+      const location = place.latitude !== undefined && place.longitude !== undefined
+        ? `${place.latitude}, ${place.longitude}`
+        : (place.formatted_address || place.address || '');
+      const galleryImages = place.photo_url || '';
       
       return [
-        place.place_id || '',
         place.name || '',
-        place.city || '',
-        place.category || '',
-        place.address || '',
-        place.formatted_address || '',
+        place.name ? place.name.toLowerCase() : '',
         place.description || '',
+        '', //Email
+        place.international_phone_number || place.phone_number || '',
+        '', //owner
+        place.category || '',
         types,
+        place.photo_url || '',
+        location,
+        place.city || '',
+        '', //postalCode
+        '', // province
+        place.address || place.formatted_address || '',
+        '', //suburb
+        '', //serviceType
+        galleryImages,
+        dailyHours.mon.close,
+        dailyHours.mon.closed,
+        dailyHours.mon.open,
+        dailyHours.tue.close,
+        dailyHours.tue.closed,
+        dailyHours.tue.open,
+        dailyHours.wed.close,
+        dailyHours.wed.closed,
+        dailyHours.wed.open,
+        dailyHours.thu.close,
+        dailyHours.thu.closed,
+        dailyHours.thu.open,
+        dailyHours.fri.close,
+        dailyHours.fri.closed,
+        dailyHours.fri.open,
+        dailyHours.sat.close,
+        dailyHours.sat.closed,
+        dailyHours.sat.open,
+        dailyHours.sun.close,
+        dailyHours.sun.closed,
+        dailyHours.sun.open,
+        place.place_id || '',
         place.rating || '',
         place.user_ratings_total || '',
         priceLevel,
-        openingHours,
-        place.phone_number || '',
-        place.international_phone_number || '',
+        place.phone_number || place.international_phone_number || '',
         place.website || '',
         place.business_status || '',
-        place.latitude || '',
-        place.longitude || '',
         place.photo_reference || '',
         place.photo_url || '',
         place.has_details ? 'Yes' : 'No',
@@ -129,7 +222,8 @@ const PlacesTable = ({ places, onRefresh, queryId, loading }: PlacesTableProps) 
       headers.join(','),
       ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     ].join('\n');
-
+    console.log('csvContent',csvContent);
+    // return;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -969,4 +1063,3 @@ const modalStyles: { [key: string]: React.CSSProperties } = {
 };
 
 export default PlacesTable;
-
